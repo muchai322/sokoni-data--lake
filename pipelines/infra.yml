@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${ENVIRONMENT:?ENVIRONMENT must be dev or prod}"
+: "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
+: "${TFSTATE_STORAGE_ACCOUNT_NAME:?TFSTATE_STORAGE_ACCOUNT_NAME is required}"
+
+case "$ENVIRONMENT" in
+  dev|prod) ;;
+  *) echo "Unsupported ENVIRONMENT: $ENVIRONMENT" >&2; exit 2 ;;
+esac
+
+subscription="$(az account show --query id --output tsv)"
+if [ "$subscription" != "$AZURE_SUBSCRIPTION_ID" ]; then
+  echo "Azure CLI subscription does not match AZURE_SUBSCRIPTION_ID." >&2
+  exit 1
+fi
+
+terraform_dir="infra/environments/$ENVIRONMENT"
+terraform -chdir="$terraform_dir" init -input=false \
+  -backend-config="resource_group_name=rg-sokoni-tfstate" \
+  -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT_NAME" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=$ENVIRONMENT.terraform.tfstate" \
+  -backend-config="use_azuread_auth=true" \
+  -backend-config="use_cli=true"
+terraform -chdir="$terraform_dir" validate
+terraform -chdir="$terraform_dir" plan -input=false -out=tfplan
+terraform -chdir="$terraform_dir" apply -input=false tfplan
