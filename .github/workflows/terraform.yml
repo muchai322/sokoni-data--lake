@@ -73,6 +73,16 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      - name: Check Azure secrets are present
+        env:
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SUB_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          [ -n "$CLIENT_ID" ] && echo "client-id: set" || echo "client-id: EMPTY"
+          [ -n "$TENANT_ID" ] && echo "tenant-id: set" || echo "tenant-id: EMPTY"
+          [ -n "$SUB_ID" ] && echo "subscription-id: set" || echo "subscription-id: EMPTY"
+
       - name: Azure Login
         uses: azure/login@v2
         with:
